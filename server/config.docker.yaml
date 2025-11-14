@@ -144,19 +144,19 @@ mssql:
     singular: false
     log-zap: false
 mysql:
-    prefix: ""
-    port: "3307"
-    config: charset=utf8mb4&parseTime=True&loc=Local
-    db-name: gva
-    username: root
-    password: "123456"
-    path: 127.0.0.1
-    engine: ""
-    log-mode: error
-    max-idle-conns: 10
-    max-open-conns: 100
-    singular: false
-    log-zap: false
+  prefix: ""
+  port: "3307"
+  config: charset=utf8mb4&parseTime=True&loc=Local
+  db-name: gva
+  username: root
+  password: "123456"
+  path: 127.0.0.1
+  engine: ""
+  log-mode: error
+  max-idle-conns: 10
+  max-open-conns: 100
+  singular: false
+  log-zap: false
 oracle:
     prefix: ""
     port: ""
@@ -194,25 +194,15 @@ qiniu:
     use-https: false
     use-cdn-domains: false
 redis:
-    name: ""
-    addr: 177.7.0.14:6379
-    password: ""
-    db: 0
-    useCluster: false
-    clusterAddrs:
-        - 177.7.0.14:7000
-        - 177.7.0.15:7001
-        - 177.7.0.13:7002
-redis-list:
-    - name: cache
-      addr: 177.7.0.14:6379
-      password: ""
-      db: 0
-      useCluster: false
-      clusterAddrs:
-        - 177.7.0.14:7000
-        - 177.7.0.15:7001
-        - 177.7.0.13:7002
+  #是否使用redis集群模式
+  useCluster: false
+  #使用集群模式addr和db默认无效
+  addr: "127.0.0.1:6379"
+  password: "123456"
+  db: 0
+  clusterAddrs: []
+
+redis-list: []
 sqlite:
     prefix: ""
     port: ""
