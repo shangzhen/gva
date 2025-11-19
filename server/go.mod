@@ -51,6 +51,7 @@ require (
 	gorm.io/driver/sqlserver v1.5.4
 	gorm.io/gen v0.3.26
 	gorm.io/gorm v1.25.12
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 )
 
 require (

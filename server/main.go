@@ -53,4 +53,5 @@ func initializeSystem() {
 	if global.GVA_DB != nil {
 		initialize.RegisterTables() // 初始化表
 	}
+	initialize.InitWebsocket()
 }
