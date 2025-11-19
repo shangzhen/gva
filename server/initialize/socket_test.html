@@ -1,0 +1,253 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket 用户身份测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { display: flex; gap: 20px; }
+        .left-panel { width: 300px; }
+        .right-panel { flex: 1; }
+        #messages { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin: 10px 0; }
+        .message { margin: 5px 0; padding: 8px; border-radius: 4px; }
+        .sent { background: #e3f2fd; }
+        .received { background: #f3e5f5; }
+        .system { background: #fff3e0; color: #e65100; }
+        .private { background: #e8f5e8; border-left: 3px solid #4caf50; }
+        .user-list { border: 1px solid #ccc; padding: 10px; margin: 10px 0; max-height: 200px; overflow-y: auto; }
+        .user-item { padding: 5px; margin: 2px 0; background: #f5f5f5; border-radius: 3px; }
+        .online { color: #4caf50; }
+        .offline { color: #f44336; }
+        input, button, select { padding: 8px; margin: 5px; }
+    </style>
+</head>
+<body>
+<h1>WebSocket 用户身份测试</h1>
+
+<div class="container">
+    <div class="left-panel">
+        <div>
+            <label>选择用户身份:</label>
+            <select id="userType">
+                <option value="user_1">用户1</option>
+                <option value="user_2">用户2</option>
+                <option value="admin_1">管理员1</option>
+                <option value="admin_2">管理员2</option>
+            </select>
+            <button onclick="connect()">连接</button>
+            <button onclick="disconnect()">断开</button>
+        </div>
+
+        <div>
+            <span id="status">未连接</span>
+            <span id="userInfo"></span>
+        </div>
+
+        <div class="user-list">
+            <h4>在线用户 (<span id="userCount">0</span>)</h4>
+            <div id="onlineUsers"></div>
+        </div>
+
+        <div>
+            <button onclick="getOnlineUsers()">刷新用户列表</button>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div>
+            <input type="text" id="messageInput" placeholder="输入消息..." style="width: 300px;">
+            <select id="messageType">
+                <option value="chat">群聊</option>
+                <option value="private_message">私聊</option>
+            </select>
+            <select id="targetUser" style="display: none;">
+                <option value="">选择目标用户</option>
+            </select>
+            <button onclick="sendMessage()">发送</button>
+        </div>
+
+        <div id="messages"></div>
+    </div>
+</div>
+
+<script>
+    let ws = null;
+    let currentUser = null;
+    let onlineUsers = [];
+
+    function connect() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            addMessage('系统', '已经连接了', 'system');
+            return;
+        }
+
+        const userType = document.getElementById('userType').value;
+        ws = new WebSocket(`ws://localhost:8081/ws?token=${userType}`);
+
+        ws.onopen = function() {
+            updateStatus('已连接', 'green');
+            addMessage('系统', '连接成功', 'system');
+            getOnlineUsers();
+        };
+
+        ws.onclose = function() {
+            updateStatus('未连接', 'red');
+            addMessage('系统', '连接断开', 'system');
+        };
+
+        ws.onerror = function(error) {
+            updateStatus('连接错误', 'red');
+            addMessage('系统', '连接错误: ' + error, 'system');
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            handleMessage(data);
+        };
+    }
+
+    function handleMessage(data) {
+        switch(data.type) {
+            case 'user_join':
+                addMessage('系统', `用户 ${data.from.username} 加入了聊天`, 'system');
+                updateOnlineUsers(data.content.onlineUsers);
+                break;
+            case 'user_leave':
+                addMessage('系统', `用户 ${data.from.username} 离开了聊天`, 'system');
+                updateOnlineUsers(data.content.onlineUsers);
+                break;
+            case 'chat':
+                addMessage(data.from.username, data.content, 'received');
+                break;
+            case 'private_message':
+                addMessage(`${data.from.username} [私聊]`, data.content.message, 'private');
+                break;
+            case 'system_message':
+                addMessage('系统', data.content, 'system');
+                break;
+            default:
+                addMessage(data.from.username, data.content, 'received');
+        }
+    }
+
+    function disconnect() {
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        updateStatus('未连接', 'red');
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const messageType = document.getElementById('messageType').value;
+        const message = input.value.trim();
+
+        if (!message) {
+            alert('请输入消息');
+            return;
+        }
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert('请先连接服务器');
+            return;
+        }
+
+        let messageData = {
+            type: messageType,
+            content: message
+        };
+
+        if (messageType === 'private_message') {
+            const targetUser = document.getElementById('targetUser').value;
+            if (!targetUser) {
+                alert('请选择私聊目标用户');
+                return;
+            }
+            messageData.content = {
+                target: targetUser,
+                message: message
+            };
+        }
+
+        ws.send(JSON.stringify(messageData));
+
+        if (messageType === 'chat') {
+            addMessage('我', message, 'sent');
+        } else if (messageType === 'private_message') {
+            // addMessage(`我 [私聊给 ${getUsername(messageData.content.target)}]`, message, 'sent');
+        }
+
+        input.value = '';
+    }
+
+    function addMessage(sender, message, type) {
+        const messages = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+        messages.appendChild(messageDiv);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function updateStatus(text, color) {
+        const status = document.getElementById('status');
+        status.textContent = text;
+        status.style.color = color;
+    }
+
+    function getOnlineUsers() {
+        fetch('/api/online-users')
+            .then(response => response.json())
+            .then(data => {
+                updateOnlineUsers(data.onlineUsers);
+            })
+            .catch(error => {
+                console.error('获取在线用户失败:', error);
+            });
+    }
+
+    function updateOnlineUsers(users) {
+        onlineUsers = users;
+        const userList = document.getElementById('onlineUsers');
+        const userCount = document.getElementById('userCount');
+        const targetUser = document.getElementById('targetUser');
+
+        userList.innerHTML = '';
+        targetUser.innerHTML = '<option value="">选择目标用户</option>';
+
+        users.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.className = 'user-item';
+            userItem.innerHTML = `${user.username} (${user.role})`;
+            userList.appendChild(userItem);
+
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.username;
+            targetUser.appendChild(option);
+        });
+
+        userCount.textContent = users.length;
+    }
+
+    function getUsername(userId) {
+        const user = onlineUsers.find(u => u.id === userId);
+        return user ? user.username : '未知用户';
+    }
+
+    // 监听消息类型变化
+    document.getElementById('messageType').addEventListener('change', function() {
+        const targetUser = document.getElementById('targetUser');
+        targetUser.style.display = this.value === 'private_message' ? 'inline-block' : 'none';
+    });
+
+    // 回车发送消息
+    document.getElementById('messageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+</script>
+</body>
+</html>
